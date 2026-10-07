@@ -417,7 +417,8 @@ def test_backtest_time_in_force_expiration():
     assert results["total_trades"] == 1
     # Check outputs file
     import json
-    with open("outputs/backtest_results.json", "r") as f:
+    from backtester import OUTPUTS_DIR
+    with open(OUTPUTS_DIR / "backtest_results.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     assert data["total_trades"] == 1
 
