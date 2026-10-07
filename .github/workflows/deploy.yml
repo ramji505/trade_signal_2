@@ -75,6 +75,12 @@ jobs:
               cp trading/.env.example trading/.env
             fi
 
+            # Ensure trades.db is a valid file, not a directory
+            if [ -d "trading/trades.db" ]; then
+              rm -rf "trading/trades.db"
+            fi
+            touch "trading/trades.db"
+
             # 4. Build and Launch Docker Containers
             docker compose down --remove-orphans || true
             docker compose up -d --build
@@ -83,6 +89,7 @@ jobs:
             echo "🔍 [CI/CD] Verifying Health Check on port 5000..."
             sleep 6
             docker ps --filter "name=nifty-scalper"
-            curl -f http://localhost:5000/health || (echo "❌ Health check failed!" && exit 1)
+            docker logs nifty-scalper --tail 25 || true
+            curl -f http://localhost:5000/health || (echo "❌ Health check failed!" && docker logs nifty-scalper && exit 1)
 
             echo "✅ [CI/CD] Deployment Succeeded! Live on Port 5000."

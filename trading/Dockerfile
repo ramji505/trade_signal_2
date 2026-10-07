@@ -19,6 +19,8 @@ WORKDIR /app
 # Set non-buffering stdout for real-time logs
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    SERVER_PORT=5000 \
+    SERVER_HOST=0.0.0.0 \
     PATH="/root/.local/bin:$PATH"
 
 # Copy pre-built wheels from builder
