@@ -4,8 +4,12 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from config import settings
 
+from pathlib import Path
+
 def get_db_connection():
-    conn = sqlite3.connect(settings.DATABASE_PATH, timeout=15.0)
+    db_path = Path(settings.DATABASE_PATH)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path), timeout=15.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")
