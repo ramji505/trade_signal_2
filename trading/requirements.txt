@@ -1,0 +1,18 @@
+# Core async & HTTP networking
+httpx>=0.27.0,<1.0.0
+
+# 2FA Authentication
+pyotp>=2.9.0,<3.0.0
+
+# Environment Configuration
+python-dotenv>=1.0.1,<2.0.0
+
+# Google Gemini REST API Client
+requests>=2.31.0,<3.0.0
+
+# Testing & Isolation
+pytest>=8.0.0,<9.0.0
+pytest-asyncio>=0.23.5,<1.0.0
+
+# Real-Time Telemetry (Optional)
+websockets>=12.0,<14.0

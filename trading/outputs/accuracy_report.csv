@@ -1,0 +1,24 @@
+Metric,Value
+total_signals,1
+total_trades,1
+winning_trades,1
+losing_trades,0
+win_rate_pct,100.0
+profit_factor,
+sample_size_warning,Not statistically actionable: fewer than 30 completed trades.
+performance_is_statistically_actionable,False
+expectancy_inr_per_trade,1705.38
+expectancy_pts_per_trade,26.24
+breakeven_win_rate_pct,0.0
+max_drawdown_inr,0.0
+max_drawdown_pct,0.0
+final_equity_inr,26705.38
+deflated_sharpe_ratio,"{""sharpe_ratio"": 0.0, ""dsr_score"": 0.0, ""statistically_significant"": false}"
+walk_forward_validation,"{""is_valid"": false, ""reason"": ""Insufficient trade count for 70/30 split""}"
+stress_testing_resilience,"{""stress_2x_slippage"": {""win_rate_pct"": 100.0, ""profit_factor"": 1656.61, ""net_pnl_inr"": 1656.61, ""is_profitable"": true}, ""stress_3x_slippage"": {""win_rate_pct"": 100.0, ""profit_factor"": 1607.85, ""net_pnl_inr"": 1607.85, ""is_profitable"": true}, ""stress_spread_expansion_1_5x"": {""net_pnl_inr"": 1624.11, ""is_profitable"": true}, ""all_stress_tests_passed"": true}"
+chronology_validated,True
+lookahead_protection,True
+options_pricing_model,Second-Order Taylor Expansion Greeks Dynamic Pricing Engine (Delta + Gamma + Vega + Theta)
+statutory_charges_included,True
+score_calibration,"{""grade_a_plus_score_90_100"": {""trades"": 1, ""win_rate_pct"": 100.0}, ""grade_a_score_80_89"": {""trades"": 0, ""win_rate_pct"": 0.0}, ""grade_b_score_70_79"": {""trades"": 0, ""win_rate_pct"": 0.0}}"
+monte_carlo,"{""iterations"": 1000, ""max_drawdown_95th_percentile_inr"": 0.0, ""ruin_probability_pct"": 0.0, ""profit_confidence_95_pct"": [0.0, 0.0]}"

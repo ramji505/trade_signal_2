@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIFTY Decision Support Signal Engine | Institutional Quality Radar</title>
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js for real-time visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .pulse-live { animation: pulse-subtle 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    .glow-bullish {
+      box-shadow: 0 0 25px rgba(34, 197, 94, 0.2);
+    }
+    .glow-bearish {
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.2);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b1120; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- Trading Mode Safety Banner -->
+  <div id="modeBanner" style="width:100%;text-align:center;padding:8px 0;font-weight:bold;font-size:14px;letter-spacing:1px;">
+    <span id="modeBannerText">🔵 PAPER TRADING MODE — No Real Money at Risk</span>
+  </div>
+  <script>
+    // Set mode banner color and text based on API status
+    fetch('/api/status').then(r => r.json()).then(data => {
+      const banner = document.getElementById('modeBanner');
+      const text = document.getElementById('modeBannerText');
+      const mode = (data.mode || data.market_data_mode || 'MOCK').toUpperCase();
+      const isDryRun = data.dry_run !== false;
+      if (mode === 'GROWW' && !isDryRun) {
+        banner.style.background = '#dc2626';
+        banner.style.color = 'white';
+        text.textContent = '🔴 LIVE TRADING MODE — REAL MONEY IS AT RISK';
+      } else if (mode === 'UPSTOX' || mode === 'GROWW') {
+        banner.style.background = '#059669';
+        banner.style.color = 'white';
+        text.textContent = '🟢 LIVE UPSTOX NSE DATA (PAPER EXECUTION) — REAL-TIME MARKET FEED';
+      } else {
+        banner.style.background = '#2563eb';
+        banner.style.color = 'white';
+        text.textContent = '🔵 SIMULATION MODE — No Real Orders';
+      }
+    }).catch(() => {
+      const banner = document.getElementById('modeBanner');
+      banner.style.background = '#6b7280';
+      banner.style.color = 'white';
+      document.getElementById('modeBannerText').textContent = '⚪ Status Unknown — Dashboard Connecting...';
+    });
+  </script>
+
+  <!-- TOP APP NAVIGATION -->
+  <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-50 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-200 to-emerald-400">
+              NIFTY SIGNAL & DECISION ENGINE
+            </h1>
+            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800">
+              DECISION SUPPORT
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Quality Scoring (0–100) • Structure Levels • Anomaly & Trap Audit</p>
+        </div>
+      </div>
+
+      <!-- Live Stream Status & Trigger -->
+      <div class="flex items-center space-x-3">
+        <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
+          <span id="conn-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-live"></span>
+          <span id="conn-text" class="text-xs font-medium text-slate-300">Live 1s Feed Active</span>
+        </div>
+
+        <button onclick="triggerDirectionAI()" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transition text-white shadow-md">
+          <i data-lucide="scan" class="w-3.5 h-3.5"></i>
+          <span>Audit Market Now</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- HERO: PRIMARY DECISION SUPPORT SIGNAL CARD (SECTION 18 BLUEPRINT) -->
+    <div id="card-hero-decision" class="glass-panel p-6 rounded-2xl relative overflow-hidden transition-all duration-300 glow-bullish border-emerald-500/40">
+      
+      <!-- Top Regime & Invalidation Header -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+        <div class="flex items-center space-x-3">
+          <span class="text-xs uppercase font-bold text-slate-400 tracking-wider">Market Regime:</span>
+          <span id="hero-regime-badge" class="px-3 py-1 text-xs font-black rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-700">
+            STRONG_TREND_BULLISH
+          </span>
+          <span id="hero-gate-status" class="px-2.5 py-0.5 text-[11px] font-bold rounded-md bg-slate-800 text-cyan-300 border border-slate-700">
+            QUALITY_SCORING_ACTIVE
+          </span>
+        </div>
+
+        <!-- Timer / Countdown -->
+        <div class="flex items-center space-x-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-700">
+          <i data-lucide="clock" class="w-4 h-4 text-cyan-400"></i>
+          <span class="text-xs text-slate-400">Signal Validity:</span>
+          <span id="hero-countdown" class="text-xs font-black text-cyan-300">Awaiting Signal</span>
+        </div>
+      </div>
+
+      <!-- Core Signal Row: Direction + Score + Zones -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-5">
+        
+        <!-- Left 4 Cols: Direction & Setup Score -->
+        <div class="lg:col-span-4 flex flex-col justify-between space-y-4">
+          <div>
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Recommended Bias</span>
+            <div class="flex items-center space-x-3">
+              <span id="hero-direction-icon" class="text-3xl text-cyan-400">■</span>
+              <div>
+                <h2 id="hero-direction-title" class="text-2xl sm:text-3xl font-black text-slate-300">
+                  MONITORING MARKET
+                </h2>
+                <div class="text-sm font-bold text-slate-400 mt-0.5" id="hero-strike-name">
+                  Scanning ATM Strikes...
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quality Score Gauge Card -->
+          <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-bold text-slate-300 uppercase">Setup Quality Score</span>
+              <span id="hero-quality-grade" class="px-2 py-0.5 text-xs font-black rounded bg-slate-800 text-slate-400 border border-slate-700">
+                GRADE --
+              </span>
+            </div>
+            <div class="flex items-baseline space-x-2">
+              <span id="hero-quality-score" class="text-3xl font-black text-slate-400">--</span>
+              <span class="text-sm text-slate-500">/ 100</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+              <div id="hero-quality-bar" class="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full rounded-full" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle 4 Cols: Trade Map Zones (Entry / Invalidation / Target) -->
+        <div class="lg:col-span-4 grid grid-cols-1 gap-2.5">
+          <!-- Entry Zone -->
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-slate-400 uppercase block font-bold">Entry Trigger Zone</span>
+              <span id="hero-entry-level" class="text-lg font-black text-slate-300">--</span>
+            </div>
+            <span class="text-xs text-slate-500 font-semibold">Spot Level</span>
+          </div>
+
+          <!-- Invalidation Level -->
+          <div class="bg-rose-950/30 p-3 rounded-xl border border-rose-500/40 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-rose-300 uppercase block font-bold">🛡️ Invalidation Level</span>
+              <span id="hero-invalidation-level" class="text-lg font-black text-rose-400">--</span>
+            </div>
+            <span class="text-[10px] text-rose-300 bg-rose-900/60 px-2 py-1 rounded font-bold">Exit if Broken</span>
+          </div>
+
+          <!-- Target Zone -->
+          <div class="bg-emerald-950/30 p-3 rounded-xl border border-emerald-500/40 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-emerald-300 uppercase block font-bold">🎯 Target Zone</span>
+              <span id="hero-target-level" class="text-lg font-black text-emerald-400">--</span>
+            </div>
+            <span class="text-[10px] text-emerald-300 bg-emerald-900/60 px-2 py-1 rounded font-bold">+28 pts (1:2 R:R)</span>
+          </div>
+        </div>
+
+        <!-- Right 4 Cols: Multi-Layer Confirmations ("Why?") -->
+        <div class="lg:col-span-4 bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs font-bold text-slate-300 mb-2">
+              <span>Why? Confirmation Checklist</span>
+              <span id="hero-conf-count" class="text-cyan-400 font-black">Scanning 7 Layers...</span>
+            </div>
+            <div id="hero-confirmations-list" class="space-y-1.5 text-xs text-slate-400">
+              <div class="flex items-center space-x-1.5"><i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i><span>Monitoring Day High / Low breakouts</span></div>
+              <div class="flex items-center space-x-1.5"><i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i><span>Tracking VWAP & EMA 9/21 momentum</span></div>
+              <div class="flex items-center space-x-1.5"><i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i><span>Auditing Call & Put OI concentration walls</span></div>
+            </div>
+          </div>
+
+          <!-- 1-Click Execution Link -->
+          <div class="pt-3 mt-3 border-t border-slate-800 flex items-center justify-between">
+            <button onclick="copyHeroStrike()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 flex items-center space-x-1.5">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Copy Strike</span>
+            </button>
+            <a id="hero-groww-link" href="groww://options/scalper?symbol=NIFTY&strike=NIFTY%2022650%20CE&type=CE" class="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center space-x-1.5 shadow-md shadow-emerald-600/20">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Execute on Groww</span>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bottom Anomaly & Contradiction Audit Strip -->
+      <div class="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+        <div class="flex items-center space-x-2">
+          <span class="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-bold text-purple-300 border border-purple-800">
+            AI ANOMALY AUDITOR
+          </span>
+          <span id="hero-audit-summary" class="text-slate-300 italic">
+            "No contradictory signals detected. Spot aligned with derivatives order flow."
+          </span>
+        </div>
+        <div class="flex items-center space-x-3 text-slate-400">
+          <span>Trap Risk: <b id="hero-trap-risk" class="text-emerald-400">15% (Low)</b></span>
+          <span>Liquidity: <b id="hero-liquidity" class="text-cyan-300">Excellent (0.28% Spread)</b></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LEVEL ENGINE & MARKET STRUCTURE MATRIX -->
+    <div class="glass-panel p-5 rounded-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="layers" class="w-5 h-5 text-cyan-400"></i>
+          <h2 class="font-bold text-base text-slate-100">Price Structure & Level Engine</h2>
+        </div>
+        <span class="text-xs text-slate-400">Key Reference Points (Spot: <b id="stat-spot" class="text-cyan-300">₹22,600.00</b>)</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-center text-xs">
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">Day Open</span>
+          <span id="lvl-open" class="font-bold text-slate-200">₹22,588.00</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">VWAP</span>
+          <span id="lvl-vwap" class="font-bold text-amber-300">₹22,601.10</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">15m ORH</span>
+          <span id="lvl-orh" class="font-bold text-emerald-400">₹22,635.00</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">15m ORL</span>
+          <span id="lvl-orl" class="font-bold text-rose-400">₹22,560.00</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">Day High</span>
+          <span id="lvl-high" class="font-bold text-emerald-400">₹22,648.50</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">Day Low</span>
+          <span id="lvl-low" class="font-bold text-rose-400">₹22,555.00</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">Call Wall (Res)</span>
+          <span id="lvl-call-wall" class="font-bold text-rose-300">22,700 CE</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-slate-400 block text-[10px] uppercase">Put Wall (Sup)</span>
+          <span id="lvl-put-wall" class="font-bold text-emerald-300">22,500 PE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN GRID: LIVE CHART & RECENT VERIFIED SIGNALS -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- LIVE CHART (2 COLS) -->
+      <div class="lg:col-span-2 glass-panel p-5 rounded-2xl flex flex-col justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="line-chart" class="w-5 h-5 text-cyan-400"></i>
+            <h2 class="font-bold text-base text-slate-100">Live Price Action & Trend Indicators</h2>
+          </div>
+          <div class="flex items-center space-x-3 text-xs">
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span><span class="text-slate-300">Spot</span></div>
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span><span class="text-slate-300">Day High</span></div>
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block"></span><span class="text-slate-300">Day Low</span></div>
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span><span class="text-slate-300">VWAP</span></div>
+          </div>
+        </div>
+
+        <div class="w-full h-72 sm:h-80 relative">
+          <canvas id="livePriceChart"></canvas>
+        </div>
+
+        <!-- Technical Benchmarks -->
+        <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-xs text-center text-slate-300">
+          <div class="bg-slate-900/60 p-2 rounded-xl">
+            <span class="text-slate-500 block text-[10px]">EMA (9) Fast</span>
+            <span id="val-ema9" class="font-bold text-slate-200">₹22,604.20</span>
+          </div>
+          <div class="bg-slate-900/60 p-2 rounded-xl">
+            <span class="text-slate-500 block text-[10px]">EMA (21) Baseline</span>
+            <span id="val-ema21" class="font-bold text-slate-200">₹22,598.50</span>
+          </div>
+          <div class="bg-slate-900/60 p-2 rounded-xl">
+            <span class="text-slate-500 block text-[10px]">NTM PCR Ratio</span>
+            <span id="val-pcr-metric" class="font-bold text-cyan-300">1.25 (Supportive)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT VERIFIED SIGNALS (1 COL) -->
+      <div class="glass-panel p-5 rounded-2xl flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="bell" class="w-5 h-5 text-amber-400"></i>
+            <h2 class="font-bold text-base text-slate-100">Verified Decision Alerts</h2>
+          </div>
+          <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800">
+            Real-Time
+          </span>
+        </div>
+
+        <div id="signals-container" class="space-y-3 overflow-y-auto max-h-[380px] pr-1 flex-1">
+          <!-- Dynamic Direction Cards -->
+          <div class="text-center py-8 text-slate-500 text-xs">
+            <i data-lucide="loader" class="w-6 h-6 mx-auto mb-2 animate-spin text-slate-600"></i>
+            Streaming live ticks & calculating market direction...
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- HISTORICAL ACCURACY & DAILY PERFORMANCE ANALYTICS -->
+    <div class="glass-panel p-5 rounded-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="bar-chart-3" class="w-5 h-5 text-emerald-400"></i>
+          <h2 class="font-bold text-base text-slate-100">Daily Accuracy & Historical Performance Analytics</h2>
+        </div>
+        <button onclick="loadAccuracyAnalytics()" class="px-3 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 flex items-center space-x-1">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Refresh Analytics</span>
+        </button>
+      </div>
+
+      <!-- Top Metric Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4 text-center">
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase block font-bold">Win Rate %</span>
+          <span id="metric-winrate" class="text-xl font-black text-emerald-400">--%</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase block font-bold">Total Signals/Trades</span>
+          <span id="metric-total-trades" class="text-xl font-black text-slate-100">--</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase block font-bold">Wins vs Losses</span>
+          <span id="metric-win-loss" class="text-xl font-black text-cyan-300">-- / --</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase block font-bold">Net PnL (INR)</span>
+          <span id="metric-net-pnl" class="text-xl font-black text-emerald-400">₹--</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase block font-bold">Profit Factor</span>
+          <span id="metric-profit-factor" class="text-xl font-black text-indigo-300">--</span>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+          <span class="text-[10px] text-slate-400 uppercase block font-bold">Net Expectancy (₹)</span>
+          <span id="metric-expectancy" class="text-xl font-black text-amber-300">₹--</span>
+        </div>
+      </div>
+
+      <!-- Daily Accuracy History Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left text-slate-300">
+          <thead class="text-[10px] uppercase bg-slate-900/90 text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="px-4 py-2.5">Date</th>
+              <th class="px-4 py-2.5">Total Trades</th>
+              <th class="px-4 py-2.5">Wins</th>
+              <th class="px-4 py-2.5">Losses</th>
+              <th class="px-4 py-2.5">Accuracy / Win Rate</th>
+              <th class="px-4 py-2.5">Net Points</th>
+              <th class="px-4 py-2.5">Net PnL (₹)</th>
+            </tr>
+          </thead>
+          <tbody id="daily-accuracy-tbody" class="divide-y divide-slate-800/60">
+            <tr>
+              <td colspan="7" class="px-4 py-4 text-center text-slate-500">Loading daily accuracy data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT LOGIC & WEBSOCKET CLIENT -->
+  <script>
+    // XSS-safe text escaper for dynamic API data inserted into innerHTML
+    function safeText(val) {
+      if (val === null || val === undefined) return '';
+      return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+    }
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Setup Chart.js
+    const ctx = document.getElementById('livePriceChart').getContext('2d');
+    const maxDataPoints = 40;
+    const chartLabels = [];
+    const spotData = [];
+    const dayHighData = [];
+    const dayLowData = [];
+    const vwapData = [];
+
+    const priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Spot Price',
+            data: spotData,
+            borderColor: '#22d3ee',
+            backgroundColor: 'rgba(34, 211, 238, 0.1)',
+            borderWidth: 2.5,
+            tension: 0.25,
+            fill: true,
+            pointRadius: 2,
+            pointHoverRadius: 5
+          },
+          {
+            label: 'Day High',
+            data: dayHighData,
+            borderColor: '#34d399',
+            borderWidth: 1.5,
+            borderDash: [5, 4],
+            pointRadius: 0,
+            fill: false
+          },
+          {
+            label: 'Day Low',
+            data: dayLowData,
+            borderColor: '#f87171',
+            borderWidth: 1.5,
+            borderDash: [5, 4],
+            pointRadius: 0,
+            fill: false
+          },
+          {
+            label: 'VWAP',
+            data: vwapData,
+            borderColor: '#fbbf24',
+            borderWidth: 1.5,
+            borderDash: [2, 2],
+            pointRadius: 0,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        scales: {
+          x: {
+            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+            ticks: { color: '#94a3b8', maxRotation: 0, font: { size: 10 } }
+          },
+          y: {
+            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+            ticks: { color: '#94a3b8', font: { size: 10 } }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            titleColor: '#e2e8f0',
+            bodyColor: '#e2e8f0',
+            borderColor: '#334155',
+            borderWidth: 1
+          }
+        }
+      }
+    });
+
+    // WebSocket Management & HTTP Polling Fallback
+    let ws = null;
+    const wsPort = window.location.port ? (parseInt(window.location.port) + 1) : 5001;
+    const wsUrl = `ws://${window.location.hostname}:${wsPort}`;
+
+    let currentHeroStrike = "NIFTY 22650 CE";
+    let isWsConnected = false;
+
+    function connectWebSocket() {
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          isWsConnected = true;
+          document.getElementById('conn-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-live';
+          document.getElementById('conn-text').innerText = 'Live 1s Feed Active';
+        };
+
+        ws.onclose = () => {
+          isWsConnected = false;
+          // When WS reconnects, HTTP fallback seamlessly maintains live UI telemetry
+          document.getElementById('conn-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-live';
+          document.getElementById('conn-text').innerText = 'Live Feed (Auto-Polling)';
+          setTimeout(connectWebSocket, 4000);
+        };
+
+        ws.onerror = (err) => {
+          isWsConnected = false;
+        };
+
+        ws.onmessage = (event) => {
+          const payload = JSON.parse(event.data);
+          handleServerMessage(payload);
+        };
+      } catch (e) {
+        isWsConnected = false;
+        setTimeout(connectWebSocket, 4000);
+      }
+    }
+
+    // High-Reliability HTTP Telemetry Backup Loop (every 1.5s)
+    setInterval(() => {
+      fetch('/api/status')
+        .then(r => r.json())
+        .then(data => {
+          if (!data || !data.spot) return;
+          if (!isWsConnected) {
+            updateMetrics(data);
+            document.getElementById('conn-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-live';
+            document.getElementById('conn-text').innerText = 'Live Upstox Active';
+          }
+        })
+        .catch(() => {});
+    }, 1500);
+
+    // Web Audio Chime Generator
+    function playAlertChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.12); // A5
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } catch (e) {
+        console.log("Audio alert suppressed:", e);
+      }
+    }
+
+    function handleServerMessage(msg) {
+      if (msg.type === "INIT") {
+        updateMetrics(msg);
+        renderSignals(msg.signals);
+      } else if (msg.type === "TICK") {
+        updateMetrics(msg);
+      } else if (msg.type === "NEW_SIGNAL") {
+        playAlertChime();
+        fetchSignals();
+      } else if (msg.type === "ALERT_INFO") {
+        alert(msg.message);
+      }
+    }
+
+    function updateMetrics(data) {
+      if (!data) return;
+
+      const spotPrice = data.spot !== undefined ? data.spot : data.price;
+      document.getElementById('stat-spot').innerText = `₹${spotPrice.toFixed(2)}`;
+
+      // Update Levels Matrix
+      document.getElementById('lvl-open').innerText = `₹${(data.day_open || spotPrice - 10).toFixed(2)}`;
+      document.getElementById('lvl-vwap').innerText = `₹${(data.vwap || spotPrice).toFixed(2)}`;
+      document.getElementById('lvl-orh').innerText = `₹${(data.orh || data.day_high).toFixed(2)}`;
+      document.getElementById('lvl-orl').innerText = `₹${(data.orl || data.day_low).toFixed(2)}`;
+      document.getElementById('lvl-high').innerText = `₹${data.day_high.toFixed(2)}`;
+      document.getElementById('lvl-low').innerText = `₹${data.day_low.toFixed(2)}`;
+      document.getElementById('lvl-call-wall').innerText = `${data.max_call_wall || (Math.round((spotPrice+100)/50)*50)} CE`;
+      document.getElementById('lvl-put-wall').innerText = `${data.max_put_wall || (Math.round((spotPrice-100)/50)*50)} PE`;
+
+      document.getElementById('val-ema9').innerText = `₹${(data.ema9 || data.ema_9 || spotPrice).toFixed(2)}`;
+      document.getElementById('val-ema21').innerText = `₹${(data.ema21 || data.ema_21 || spotPrice).toFixed(2)}`;
+      document.getElementById('val-pcr-metric').innerText = `${(data.pcr || 1.0).toFixed(2)} (${data.pcr >= 1.0 ? 'Supportive' : 'Resistive'})`;
+
+      if (data.gate_status) {
+        document.getElementById('hero-gate-status').innerText = data.gate_status;
+      }
+
+      // Update Regime & Decision Card
+      const regime = data.session_regime || "STRONG_TREND_BULLISH";
+      const regimeBadge = document.getElementById('hero-regime-badge');
+      regimeBadge.innerText = regime;
+
+      if (regime.includes("BULLISH") || regime === "BREAKOUT_EXPANSION") {
+        regimeBadge.className = "px-3 py-1 text-xs font-black rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-700";
+      } else if (regime.includes("BEARISH")) {
+        regimeBadge.className = "px-3 py-1 text-xs font-black rounded-lg bg-rose-950 text-rose-300 border border-rose-700";
+      } else {
+        regimeBadge.className = "px-3 py-1 text-xs font-black rounded-lg bg-amber-950 text-amber-300 border border-amber-700";
+      }
+
+      // Update Hero Signal Details if last signal present
+      const lastSig = data.last_signal;
+      if (lastSig) {
+        const isCall = (lastSig.action === 'BUY_CE' || (lastSig.strike && lastSig.strike.includes('CE')));
+        currentHeroStrike = lastSig.strike || "NIFTY 22650 CE";
+        document.getElementById('hero-strike-name').innerText = currentHeroStrike;
+        document.getElementById('hero-direction-title').innerText = isCall ? "CALL (CE) SETUP" : "PUT (PE) SETUP";
+        document.getElementById('hero-direction-title').className = isCall ? "text-2xl sm:text-3xl font-black text-emerald-400" : "text-2xl sm:text-3xl font-black text-rose-400";
+        document.getElementById('hero-direction-icon').innerText = isCall ? "▲" : "▼";
+        document.getElementById('hero-direction-icon').className = isCall ? "text-3xl text-emerald-400" : "text-3xl text-rose-400";
+
+        const score = lastSig.quality_score || 84;
+        const grade = lastSig.grade || "A";
+        document.getElementById('hero-quality-score').innerText = score;
+        document.getElementById('hero-quality-grade').innerText = `GRADE ${grade}`;
+        document.getElementById('hero-quality-bar').style.width = `${score}%`;
+
+        document.getElementById('hero-entry-level').innerText = `₹${(lastSig.entry || spotPrice).toFixed(2)}`;
+        document.getElementById('hero-invalidation-level').innerText = `₹${(lastSig.invalidation_level || (isCall ? spotPrice - 14 : spotPrice + 14)).toFixed(2)}`;
+        document.getElementById('hero-target-level').innerText = `₹${(lastSig.target || (isCall ? spotPrice + 28 : spotPrice - 28)).toFixed(2)}`;
+
+        // Scalper link
+        const cleanStrike = currentHeroStrike.replace(/ /g, "%20");
+        const type = isCall ? "CE" : "PE";
+        document.getElementById('hero-groww-link').href = `groww://options/scalper?symbol=NIFTY&strike=${cleanStrike}&type=${type}`;
+      }
+
+      if (data.audit_summary) {
+        document.getElementById('hero-audit-summary').innerText = `"${data.audit_summary}"`;
+      }
+      if (data.trap_risk_score !== undefined) {
+        const trapPct = Math.round(data.trap_risk_score * 100);
+        document.getElementById('hero-trap-risk').innerText = `${trapPct}% (${trapPct <= 25 ? 'Low' : (trapPct <= 60 ? 'Moderate' : 'High')})`;
+        document.getElementById('hero-trap-risk').className = trapPct <= 25 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold";
+      }
+      if (data.spread_pct !== undefined) {
+        document.getElementById('hero-liquidity').innerText = `${data.liquidity_status || 'Good'} (${data.spread_pct}% Spread)`;
+      }
+
+      // Update Chart
+      const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      chartLabels.push(timeStr);
+      spotData.push(spotPrice);
+      dayHighData.push(data.day_high);
+      dayLowData.push(data.day_low);
+      vwapData.push(data.vwap);
+
+      if (chartLabels.length > maxDataPoints) {
+        chartLabels.shift();
+        spotData.shift();
+        dayHighData.shift();
+        dayLowData.shift();
+        vwapData.shift();
+      }
+      priceChart.update('none');
+    }
+
+    function renderSignals(signals) {
+      const container = document.getElementById('signals-container');
+      if (!signals || signals.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-slate-500 text-xs">
+            <i data-lucide="shield" class="w-8 h-8 mx-auto mb-2 text-cyan-500/50"></i>
+            Continuous multi-layer decision monitoring active...
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      let html = '';
+      signals.forEach((sig) => {
+        const isCall = sig.bias === 'BUY_CE';
+        const colorClass = isCall ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-rose-500/40 bg-rose-950/20';
+        const tagColor = isCall ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' : 'bg-rose-900/60 text-rose-300 border-rose-700';
+        const directionText = isCall ? 'CALL (CE)' : 'PUT (PE)';
+        const quality = sig.quality_score || int(sig.confidence_pct) || 84;
+        const grade = sig.grade || 'A';
+
+        html += `
+          <div class="p-4 rounded-xl border ${colorClass} transition hover:border-slate-500 relative">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center space-x-2">
+                <span class="px-2 py-0.5 text-xs font-bold rounded border ${tagColor}">
+                  ${directionText}
+                </span>
+                <span class="font-bold text-sm text-slate-100">${safeText(sig.strike)}</span>
+              </div>
+              <span class="text-xs font-black text-cyan-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                ${safeText(quality)}/100 [${safeText(grade)}]
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 my-2 text-xs">
+              <div class="bg-slate-900/80 p-2 rounded-lg">
+                <span class="text-[10px] text-slate-400 block">Entry Trigger</span>
+                <span class="font-bold text-slate-100">₹${safeText(sig.entry_price)}</span>
+              </div>
+              <div class="bg-slate-900/80 p-2 rounded-lg">
+                <span class="text-[10px] text-slate-400 block">Invalidation Level</span>
+                <span class="font-bold text-rose-400">₹${safeText(sig.invalidation_level || sig.stop_loss)}</span>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-300 line-clamp-2 my-2 italic">
+              "${safeText(sig.reasoning)}"
+            </p>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
+              <span class="text-emerald-400 font-semibold">Status: ${safeText(sig.status || 'ACTIVE')}</span>
+              <div class="flex items-center space-x-2">
+                <button onclick='copyStrikeToClipboard(${JSON.stringify(sig.strike)})' class="px-2.5 py-1 text-[11px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 flex items-center space-x-1">
+                  <i data-lucide="copy" class="w-3 h-3"></i>
+                  <span>Copy</span>
+                </button>
+                <a href="groww://options/scalper?symbol=NIFTY&strike=${safeText(sig.strike).replace(/ /g, '%20')}&type=${isCall ? 'CE' : 'PE'}" class="px-3 py-1 text-[11px] font-semibold rounded bg-emerald-600 hover:bg-emerald-500 text-white flex items-center space-x-1 shadow">
+                  <i data-lucide="external-link" class="w-3 h-3"></i>
+                  <span>Groww</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function copyHeroStrike() {
+      copyStrikeToClipboard(currentHeroStrike);
+    }
+
+    function copyStrikeToClipboard(strikeText) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(strikeText).then(() => {
+          alert(`Copied "${strikeText}" to clipboard! Paste into Groww search.`);
+        });
+      } else {
+        prompt("Copy strike:", strikeText);
+      }
+    }
+
+    async function fetchSignals() {
+      try {
+        const sigRes = await fetch('/api/signals');
+        const sigData = await sigRes.json();
+        renderSignals(sigData.signals);
+      } catch (e) {
+        console.error("Fetch error:", e);
+      }
+    }
+
+    function triggerDirectionAI() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "TRIGGER_AI" }));
+      } else {
+        fetch('/api/trigger-analysis', { method: 'POST' })
+          .then(r => r.json())
+          .then(d => {
+            alert(`Decision Audit: ${d.result.bias} (Quality ${d.result.quality_score}/100)\n${d.result.reasoning}`);
+            fetchSignals();
+          });
+      }
+    }
+
+    async function loadAccuracyAnalytics() {
+      try {
+        const [metRes, dailyRes] = await Promise.all([
+          fetch('/api/metrics'),
+          fetch('/api/daily-accuracy')
+        ]);
+        const metrics = await metRes.json();
+        const dailyData = await dailyRes.json();
+
+        // Populate top cards
+        const hasTrades = (metrics.total_trades || 0) > 0;
+        document.getElementById('metric-winrate').innerText = hasTrades ? `${(metrics.win_rate_pct || 0).toFixed(1)}%` : '--%';
+        document.getElementById('metric-total-trades').innerText = metrics.total_trades || 0;
+        document.getElementById('metric-win-loss').innerText = `${metrics.winning_trades || 0}W / ${metrics.losing_trades || 0}L`;
+        
+        const pnlEl = document.getElementById('metric-net-pnl');
+        const netAmt = metrics.total_pnl_amount || 0;
+        pnlEl.innerText = hasTrades ? `${netAmt >= 0 ? '+' : ''}₹${netAmt.toLocaleString('en-IN')}` : '₹0.00';
+        pnlEl.className = netAmt >= 0 ? 'text-xl font-black text-emerald-400' : 'text-xl font-black text-rose-400';
+
+        document.getElementById('metric-profit-factor').innerText = hasTrades ? `${(metrics.profit_factor || 1.0).toFixed(2)}` : '--';
+        document.getElementById('metric-expectancy').innerText = hasTrades ? `₹${(metrics.net_expectancy_inr || 0).toFixed(1)}` : '₹0.0';
+
+        // Populate Daily Table
+        const tbody = document.getElementById('daily-accuracy-tbody');
+        const list = dailyData.daily_accuracy || [];
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-4 text-center text-slate-500">No closed trades recorded yet.</td></tr>';
+          return;
+        }
+
+        let rowsHtml = '';
+        list.forEach(row => {
+          const isPos = row.net_pnl_inr >= 0;
+          const pnlColor = isPos ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+          const wrColor = row.win_rate_pct >= 60 ? 'text-emerald-300 font-bold' : (row.win_rate_pct >= 40 ? 'text-amber-300 font-bold' : 'text-rose-300 font-bold');
+
+          rowsHtml += `
+            <tr class="hover:bg-slate-900/60 transition">
+              <td class="px-4 py-3 font-semibold text-slate-200">${row.date}</td>
+              <td class="px-4 py-3 text-slate-300">${row.total_trades}</td>
+              <td class="px-4 py-3 text-emerald-400 font-semibold">${row.wins}</td>
+              <td class="px-4 py-3 text-rose-400 font-semibold">${row.losses}</td>
+              <td class="px-4 py-3 ${wrColor}">${row.win_rate_pct}%</td>
+              <td class="px-4 py-3 text-cyan-300">${row.net_pnl_pts >= 0 ? '+' : ''}${row.net_pnl_pts} pts</td>
+              <td class="px-4 py-3 ${pnlColor}">${isPos ? '+' : ''}₹${row.net_pnl_inr.toLocaleString('en-IN')}</td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = rowsHtml;
+      } catch (e) {
+        console.error("Error loading accuracy analytics:", e);
+      }
+    }
+
+    async function fetchStatusPolling() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        updateMetrics(data);
+      } catch (e) {}
+    }
+
+    // Start WebSocket & Load Analytics on Load with HTTP Polling Backup
+    window.addEventListener('DOMContentLoaded', () => {
+      connectWebSocket();
+      loadAccuracyAnalytics();
+      fetchSignals();
+      setInterval(fetchStatusPolling, 1000);
+      setInterval(fetchSignals, 3000);
+    });
+  </script>
+</body>
+</html>

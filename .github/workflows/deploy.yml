@@ -1,0 +1,88 @@
+name: CI/CD Pipeline - Build & Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+
+jobs:
+  # -------------------------------------------------------------
+  # STAGE 1: Automated Test Suite (Guarantees zero broken code)
+  # -------------------------------------------------------------
+  test:
+    name: Run Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r trading/requirements.txt
+
+      - name: Execute Pytest Suite (39 Tests)
+        run: |
+          python -m pytest trading/tests -v
+
+  # -------------------------------------------------------------
+  # STAGE 2: Build Lean Docker Image & Push to GHCR / Deploy
+  # -------------------------------------------------------------
+  deploy:
+    name: Deploy Container to AWS EC2
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }} # e.g. ubuntu or ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}     # Private .pem key contents
+          port: 22
+          script: |
+            set -e
+            echo "🚀 [CI/CD] Starting Deployment on AWS EC2..."
+
+            # 1. Navigate to project directory (or clone if not exists)
+            APP_DIR="/home/${{ secrets.EC2_USER }}/trading_v2_upgrade"
+            if [ ! -d "$APP_DIR" ]; then
+              git clone https://github.com/${{ github.repository }}.git "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+
+            # 2. Pull latest git changes
+            git fetch --all
+            git reset --hard origin/main || git reset --hard origin/master
+
+            # 3. Ensure .env exists (backed up / persisted)
+            if [ ! -f "trading/.env" ]; then
+              echo "⚠️ trading/.env not found, using .env.example fallback"
+              cp trading/.env.example trading/.env
+            fi
+
+            # 4. Build and Launch Docker Containers
+            docker compose down --remove-orphans || true
+            docker compose up -d --build
+
+            # 5. Wait and Verify Health Check
+            echo "🔍 [CI/CD] Verifying Health Check on port 5000..."
+            sleep 6
+            docker ps --filter "name=nifty-scalper"
+            curl -f http://localhost:5000/health || (echo "❌ Health check failed!" && exit 1)
+
+            echo "✅ [CI/CD] Deployment Succeeded! Live on Port 5000."

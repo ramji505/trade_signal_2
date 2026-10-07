@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+tests/
+.git/
+.gitignore
+*.md
+ASSESSMENT_V2.md
+UPGRADE_V2.md
+structure.txt
+outputs/
+.env.example

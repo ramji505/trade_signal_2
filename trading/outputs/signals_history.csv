@@ -1,0 +1,2 @@
+signal_id,timestamp,entry_epoch,symbol,direction,regime,score,grade,spot_entry,option_strike,option_type,option_entry,spot_sl,spot_target,option_sl,option_target,exit_time,exit_epoch,exit_spot,exit_option,outcome,sl_hit_first,target_hit_first,max_favorable_excursion,max_adverse_excursion,hold_duration_minutes,pnl_pts,gross_pnl,charges,net_pnl_after_costs
+1,1000.0,1000.0,NIFTY,BUY_CE,STRONG_TREND_BULLISH,92,A,22600.0,NIFTY 22600 CE,CE,120.75,22572.0,22656.0,106.8,148.8,1060.0,1060.0,22640.8,148.05,TARGET_HIT,False,True,41.83,1.11,1,27.3,1774.5,69.12,1705.38
