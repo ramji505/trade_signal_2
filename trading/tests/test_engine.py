@@ -109,8 +109,10 @@ def test_option_max_pain_calculation():
 # 3. SETUP QUALITY SCORING & CONFLUENCE TESTS (Tests 10-13)
 # ==============================================================================
 
-def test_setup_quality_scoring_engine_weights():
+def test_setup_quality_scoring_engine_weights(monkeypatch):
     """Test 10: Verify 0-100 scoring breakdown across all 7 layers."""
+    monkeypatch.setattr("concordance.heavyweight_tracker.evaluate_bias_alignment", lambda bias: (True, "ALIGNED"))
+    monkeypatch.setattr(settings, "ENABLE_TIME_OF_DAY_FILTER", False)
     analyzer = MarketAIAnalyzer()
     payload = {
         "direction": "CE", "spot": 22650.0, "vwap": 22610.0,
@@ -126,8 +128,10 @@ def test_setup_quality_scoring_engine_weights():
     assert grade in ["A+", "A"]
     assert sum(breakdown.values()) == score
 
-def test_scoring_grade_a_plus_classification():
+def test_scoring_grade_a_plus_classification(monkeypatch):
     """Test 11: Verify Grade A+ threshold (>= 90 pts)."""
+    monkeypatch.setattr("concordance.heavyweight_tracker.evaluate_bias_alignment", lambda bias: (True, "ALIGNED"))
+    monkeypatch.setattr(settings, "ENABLE_TIME_OF_DAY_FILTER", False)
     analyzer = MarketAIAnalyzer()
     payload = {
         "direction": "CE", "spot": 22650.0, "vwap": 22605.0,

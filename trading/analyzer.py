@@ -345,9 +345,11 @@ class MarketAIAnalyzer:
         else:
             warnings.append(f"Heavyweight Divergence Warning: {concord_reason}")
 
-        # 9. Time of Day Session Window & Theta Decay
+        # 9. Time of Day Session Window & Theta Decay (IST UTC+5:30)
         dte = oi_snapshot.get("dte", 1.0)
-        now_dt = datetime.now()
+        from datetime import timezone as _dt_tz, timedelta as _dt_td
+        ist_tz = _dt_tz(_dt_td(hours=5, minutes=30))
+        now_dt = datetime.now(_dt_tz.utc).astimezone(ist_tz)
         cur_min = now_dt.hour * 60 + now_dt.minute
         time_penalty = 0.0
 
