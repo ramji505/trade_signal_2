@@ -75,6 +75,10 @@ jobs:
               cp trading/.env.example trading/.env
             fi
 
+            # Force update SERVER_PORT and ENFORCE_MARKET_HOURS in .env if old file exists
+            sed -i 's/SERVER_PORT=8000/SERVER_PORT=5000/g' trading/.env 2>/dev/null || true
+            sed -i 's/ENFORCE_MARKET_HOURS=true/ENFORCE_MARKET_HOURS=false/g' trading/.env 2>/dev/null || true
+
             # Clean up any old host directory collisions
             sudo rm -rf trading/trades.db 2>/dev/null || true
 
@@ -82,11 +86,18 @@ jobs:
             docker compose down --remove-orphans || true
             docker compose up -d --build
 
-            # 5. Wait and Verify Health Check
+            # 5. Wait and Verify Health Check (Up to 30 seconds retry)
             echo "🔍 [CI/CD] Verifying Health Check on port 5000..."
-            sleep 10
+            for i in $(seq 1 12); do
+              if curl -s -f http://localhost:5000/health > /dev/null; then
+                echo "✅ Port 5000 responded successfully on attempt $i!"
+                break
+              fi
+              echo "Attempt $i: waiting for server startup..."
+              sleep 2
+            done
             docker ps --filter "name=nifty-scalper"
-            docker logs nifty-scalper --tail 25 || true
-            curl -f http://localhost:5000/health || (echo "❌ Health check failed!" && docker logs nifty-scalper && exit 1)
+            docker logs nifty-scalper --tail 30 || true
+            curl -f http://localhost:5000/health || (echo "❌ Health check failed!" && exit 1)
 
             echo "✅ [CI/CD] Deployment Succeeded! Live on Port 5000."

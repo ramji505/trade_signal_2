@@ -16,6 +16,9 @@ services:
       - nifty_data:/app/data
     environment:
       - DATABASE_PATH=/app/data/trades.db
+      - SERVER_PORT=5000
+      - SERVER_HOST=0.0.0.0
+      - ENFORCE_MARKET_HOURS=false
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
       interval: 30s
