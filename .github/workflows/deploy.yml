@@ -51,15 +51,16 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }} # e.g. ubuntu or ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}     # Private .pem key contents
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
+          script_stop: true
           script: |
             set -e
             echo "🚀 [CI/CD] Starting Deployment on AWS EC2..."
 
             # 1. Navigate to project directory (or clone if not exists)
-            APP_DIR="/home/${{ secrets.EC2_USER }}/trading_v2_upgrade"
+            APP_DIR="/home/${{ secrets.EC2_USER || 'ubuntu' }}/trading_v2_upgrade"
             if [ ! -d "$APP_DIR" ]; then
               git clone https://github.com/${{ github.repository }}.git "$APP_DIR"
             fi
