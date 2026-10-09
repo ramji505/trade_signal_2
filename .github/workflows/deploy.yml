@@ -83,7 +83,7 @@ jobs:
           fi
 
           # 4. Execute remote deployment over SSH
-          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
+          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -o IPQoS=none -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
             set -e
             echo "🚀 [CI/CD] Starting Deployment on AWS EC2..."
             APP_DIR="/home/ubuntu/trading_v2_upgrade"
