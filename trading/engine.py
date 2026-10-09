@@ -267,7 +267,7 @@ class TradingOrchestrator:
         grade = ai_result.get("grade", "A")
         reasoning = ai_result.get("reasoning", "")
         invalidation_lvl = ai_result.get("invalidation_level", spot_price - sl_pts if bias == "BUY_CE" else spot_price + sl_pts)
-        expires_at = ai_result.get("expires_at", time.time() + 480)
+        expires_at = ai_result.get("expires_at", time.time() + 180)
         strike = ai_result.get("strike") or f"{settings.SYMBOL} {int(round(spot_price / 50) * 50)} {'CE' if 'CE' in bias else 'PE'}"
         scalper_link = self.build_scalper_link(settings.SYMBOL, strike, bias)
 

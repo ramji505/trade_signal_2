@@ -56,7 +56,9 @@ jobs:
           set -e
           # 1. Sanitize host (strip protocol, trailing ports, slashes, whitespace)
           TARGET_HOST=$(echo "$RAW_HOST" | sed -e 's|^[^/]*//||' -e 's|/.*$||' -e 's|:.*$||' | tr -d '[:space:]')
-          if [ -z "$TARGET_HOST" ]; then
+          # If host is empty or a private AWS VPC IP (172.16-31.x.x, 10.x.x.x, 192.168.x.x), route to Public Elastic IP
+          if [ -z "$TARGET_HOST" ] || [[ "$TARGET_HOST" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]] || [[ "$TARGET_HOST" =~ ^10\. ]] || [[ "$TARGET_HOST" =~ ^192\.168\. ]]; then
+            echo "⚠️ Target host '$TARGET_HOST' is an internal private VPC address. Overriding with Public Elastic IP: 23.23.172.189"
             TARGET_HOST="23.23.172.189"
           fi
 
@@ -75,7 +77,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           # 4. Execute remote deployment over SSH
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
             set -e
             echo "🚀 [CI/CD] Starting Deployment on AWS EC2..."
             APP_DIR="/home/ubuntu/trading_v2_upgrade"

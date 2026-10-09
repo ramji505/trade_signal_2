@@ -36,7 +36,7 @@
 
   <!-- Trading Mode Safety Banner -->
   <div id="modeBanner" style="width:100%;text-align:center;padding:8px 0;font-weight:bold;font-size:14px;letter-spacing:1px;background:#2563eb;color:white;">
-    <span id="modeBannerText">🔵 SIMULATION MODE — No Real Orders</span>
+    <span id="modeBannerText">🔵 SIMULATION MODE — No Real Orders (Live Simulation Feed)</span>
   </div>
   <script>
     // Set mode banner color and text based on API status
@@ -52,13 +52,13 @@
       } else {
         banner.style.background = '#2563eb';
         banner.style.color = 'white';
-        text.textContent = '🔵 SIMULATION MODE — No Real Orders' + (mode === 'UPSTOX' ? ' (Live Upstox Feed Active)' : ' (Live Simulation Feed)');
+        text.textContent = '🔵 SIMULATION MODE — No Real Orders (Live Simulation Feed)';
       }
     }).catch(() => {
       const banner = document.getElementById('modeBanner');
       banner.style.background = '#2563eb';
       banner.style.color = 'white';
-      document.getElementById('modeBannerText').textContent = '🔵 SIMULATION MODE — No Real Orders';
+      document.getElementById('modeBannerText').textContent = '🔵 SIMULATION MODE — No Real Orders (Live Simulation Feed)';
     });
   </script>
 
@@ -659,11 +659,30 @@
         // Dynamic Countdown Timer
         if (lastSig.expires_at) {
           const nowSec = Math.floor(Date.now() / 1000);
-          const remSec = Math.max(0, Math.floor(lastSig.expires_at - nowSec));
-          const mins = String(Math.floor(remSec / 60)).padStart(2, '0');
-          const secs = String(remSec % 60).padStart(2, '0');
-          document.getElementById('hero-countdown').innerText = `Active (${mins}:${secs} rem)`;
-          document.getElementById('hero-countdown').className = "text-xs font-black text-emerald-400";
+          const remSec = Math.floor(lastSig.expires_at - nowSec);
+          if (remSec > 0) {
+            const mins = String(Math.floor(remSec / 60)).padStart(2, '0');
+            const secs = String(remSec % 60).padStart(2, '0');
+            document.getElementById('hero-countdown').innerText = `Active (${mins}:${secs} rem)`;
+            document.getElementById('hero-countdown').className = "text-xs font-black text-emerald-400";
+          } else {
+            document.getElementById('hero-countdown').innerText = "Refreshing Fresh Setup...";
+            document.getElementById('hero-countdown').className = "text-xs font-black text-amber-400 animate-pulse";
+            if (!window._refreshingSignal) {
+              window._refreshingSignal = true;
+              fetch('/api/trigger-analysis', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                  if (d.signal) updateMetrics({ ...d.signal, last_signal: d.signal });
+                  fetchSignals();
+                  loadAccuracyAnalytics();
+                })
+                .catch(() => {})
+                .finally(() => {
+                  setTimeout(() => { window._refreshingSignal = false; }, 5000);
+                });
+            }
+          }
         } else {
           document.getElementById('hero-countdown').innerText = "Signal Active";
           document.getElementById('hero-countdown').className = "text-xs font-black text-emerald-400";
