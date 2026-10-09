@@ -47,6 +47,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Diagnostic Network Probe
+        run: |
+          echo "🌐 Runner Public IP:"
+          curl -s https://api.ipify.org || true
+          echo ""
+          echo "🌐 Testing HTTP Port 5000:"
+          curl -s -m 5 -o /dev/null -w "Port 5000 HTTP Status: %{http_code}\n" http://23.23.172.189:5000/health || echo "Port 5000 failed"
+          echo "🌐 Testing TCP Port 22:"
+          timeout 5 bash -c '</dev/tcp/23.23.172.189/22' && echo "Port 22 TCP OPEN" || echo "Port 22 TCP TIMED OUT"
+
       - name: Deploy to AWS EC2 via SSH
         env:
           RAW_HOST: ${{ secrets.EC2_HOST }}
