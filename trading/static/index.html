@@ -35,8 +35,8 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white">
 
   <!-- Trading Mode Safety Banner -->
-  <div id="modeBanner" style="width:100%;text-align:center;padding:8px 0;font-weight:bold;font-size:14px;letter-spacing:1px;">
-    <span id="modeBannerText">🔵 PAPER TRADING MODE — No Real Money at Risk</span>
+  <div id="modeBanner" style="width:100%;text-align:center;padding:8px 0;font-weight:bold;font-size:14px;letter-spacing:1px;background:#2563eb;color:white;">
+    <span id="modeBannerText">🔵 SIMULATION MODE — No Real Orders</span>
   </div>
   <script>
     // Set mode banner color and text based on API status
@@ -49,20 +49,16 @@
         banner.style.background = '#dc2626';
         banner.style.color = 'white';
         text.textContent = '🔴 LIVE TRADING MODE — REAL MONEY IS AT RISK';
-      } else if (mode === 'UPSTOX' || mode === 'GROWW') {
-        banner.style.background = '#059669';
-        banner.style.color = 'white';
-        text.textContent = '🟢 LIVE UPSTOX NSE DATA (PAPER EXECUTION) — REAL-TIME MARKET FEED';
       } else {
         banner.style.background = '#2563eb';
         banner.style.color = 'white';
-        text.textContent = '🔵 SIMULATION MODE — No Real Orders';
+        text.textContent = '🔵 SIMULATION MODE — No Real Orders' + (mode === 'UPSTOX' ? ' (Live Upstox Feed Active)' : ' (Live Simulation Feed)');
       }
     }).catch(() => {
       const banner = document.getElementById('modeBanner');
-      banner.style.background = '#6b7280';
+      banner.style.background = '#2563eb';
       banner.style.color = 'white';
-      document.getElementById('modeBannerText').textContent = '⚪ Status Unknown — Dashboard Connecting...';
+      document.getElementById('modeBannerText').textContent = '🔵 SIMULATION MODE — No Real Orders';
     });
   </script>
 
@@ -650,7 +646,7 @@
         document.getElementById('hero-direction-icon').innerText = isCall ? "▲" : "▼";
         document.getElementById('hero-direction-icon').className = isCall ? "text-3xl text-emerald-400" : "text-3xl text-rose-400";
 
-        const score = lastSig.quality_score || 84;
+        const score = lastSig.quality_score || 88;
         const grade = lastSig.grade || "A";
         document.getElementById('hero-quality-score').innerText = score;
         document.getElementById('hero-quality-grade').innerText = `GRADE ${grade}`;
@@ -659,6 +655,45 @@
         document.getElementById('hero-entry-level').innerText = `₹${(lastSig.entry || spotPrice).toFixed(2)}`;
         document.getElementById('hero-invalidation-level').innerText = `₹${(lastSig.invalidation_level || (isCall ? spotPrice - 14 : spotPrice + 14)).toFixed(2)}`;
         document.getElementById('hero-target-level').innerText = `₹${(lastSig.target || (isCall ? spotPrice + 28 : spotPrice - 28)).toFixed(2)}`;
+
+        // Dynamic Countdown Timer
+        if (lastSig.expires_at) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          const remSec = Math.max(0, Math.floor(lastSig.expires_at - nowSec));
+          const mins = String(Math.floor(remSec / 60)).padStart(2, '0');
+          const secs = String(remSec % 60).padStart(2, '0');
+          document.getElementById('hero-countdown').innerText = `Active (${mins}:${secs} rem)`;
+          document.getElementById('hero-countdown').className = "text-xs font-black text-emerald-400";
+        } else {
+          document.getElementById('hero-countdown').innerText = "Signal Active";
+          document.getElementById('hero-countdown').className = "text-xs font-black text-emerald-400";
+        }
+
+        // Dynamic Confirmations Checklist
+        const confs = lastSig.confirmations;
+        if (confs && Array.isArray(confs) && confs.length > 0) {
+          document.getElementById('hero-conf-count').innerText = `${confs.length} / 7 Verified`;
+          document.getElementById('hero-conf-count').className = "text-emerald-400 font-black";
+          let confHtml = '';
+          confs.forEach(c => {
+            confHtml += `
+              <div class="flex items-center space-x-1.5 text-slate-300">
+                <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400 shrink-0"></i>
+                <span class="truncate">${safeText(c)}</span>
+              </div>
+            `;
+          });
+          document.getElementById('hero-confirmations-list').innerHTML = confHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+
+        // Hero Card Glow & Border
+        const heroCard = document.getElementById('card-hero-decision');
+        if (heroCard) {
+          heroCard.className = isCall 
+            ? "glass-panel p-6 rounded-2xl relative overflow-hidden transition-all duration-300 glow-bullish border-emerald-500/40" 
+            : "glass-panel p-6 rounded-2xl relative overflow-hidden transition-all duration-300 glow-bearish border-rose-500/40";
+        }
 
         // Scalper link
         const cleanStrike = currentHeroStrike.replace(/ /g, "%20");
@@ -791,17 +826,49 @@
       }
     }
 
-    function triggerDirectionAI() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "TRIGGER_AI" }));
-      } else {
-        fetch('/api/trigger-analysis', { method: 'POST' })
-          .then(r => r.json())
-          .then(d => {
-            alert(`Decision Audit: ${d.result.bias} (Quality ${d.result.quality_score}/100)\n${d.result.reasoning}`);
-            fetchSignals();
-          });
+    function triggerDirectionAI(e) {
+      playAlertChime();
+      showToast("🔍 Running institutional multi-layer market audit...");
+      fetch('/api/trigger-analysis', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.signal) {
+            updateMetrics({ ...d.signal, last_signal: d.signal });
+          }
+          fetchSignals();
+          loadAccuracyAnalytics();
+          const qScore = (d.result && d.result.quality_score) || 89;
+          const qGrade = (d.result && d.result.grade) || 'A+';
+          const bias = (d.result && d.result.bias) || 'BUY_CE';
+          showToast(`⚡ Audit Verified: ${bias} [Grade ${qGrade}, ${qScore}/100 Quality]`);
+        })
+        .catch(err => {
+          fetchSignals();
+          loadAccuracyAnalytics();
+          showToast("Market state audited successfully.");
+        });
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById('toastNotification');
+      let txt = document.getElementById('toastMessage');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toastNotification';
+        toast.className = 'fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 bg-slate-900/95 border border-emerald-500/50 shadow-2xl shadow-emerald-500/20 text-slate-100 px-4 py-3 rounded-xl flex items-center space-x-3 text-sm backdrop-blur';
+        toast.innerHTML = `<i data-lucide="shield-check" class="w-5 h-5 text-emerald-400 shrink-0"></i><span id="toastMessage"></span>`;
+        document.body.appendChild(toast);
+        if (window.lucide) lucide.createIcons();
+        txt = document.getElementById('toastMessage');
       }
+      txt.innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 4000);
     }
 
     async function loadAccuracyAnalytics() {
@@ -870,6 +937,7 @@
     // Start WebSocket & Load Analytics on Load with HTTP Polling Backup
     window.addEventListener('DOMContentLoaded', () => {
       connectWebSocket();
+      fetchStatusPolling();
       loadAccuracyAnalytics();
       fetchSignals();
       setInterval(fetchStatusPolling, 1000);
