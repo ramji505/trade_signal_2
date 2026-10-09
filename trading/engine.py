@@ -54,6 +54,8 @@ class TradingOrchestrator:
                     "confirmations": confs,
                     "reasoning": sig.get("reasoning", "")
                 }
+                if sig.get("status") == "ACTIVE":
+                    self.active_signals.append(sig)
         except Exception:
             pass
         self.consecutive_losses: int = 0
@@ -67,6 +69,14 @@ class TradingOrchestrator:
     def check_circuit_breaker(self) -> bool:
         """Returns True if trading is paused due to consecutive losses."""
         if self.consecutive_losses >= settings.MAX_DAILY_CONSECUTIVE_LOSSES:
+            # In simulation / dry-run mode, auto-reset after 3 minutes cooldown so feed remains active
+            if settings.DRY_RUN and hasattr(self, '_cb_lock_time') and (time.time() - self._cb_lock_time) > 180:
+                self.consecutive_losses = 0
+                self.is_circuit_breaker_active = False
+                logger.info("Simulation mode: Circuit breaker auto-reset after 3-minute cooldown.")
+                return False
+            if not hasattr(self, '_cb_lock_time') or not self.is_circuit_breaker_active:
+                self._cb_lock_time = time.time()
             self.is_circuit_breaker_active = True
             self.current_gate_status = f"CIRCUIT_BREAKER_LOCKED_({self.consecutive_losses}_LOSSES)"
             return True

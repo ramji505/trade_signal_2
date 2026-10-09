@@ -170,6 +170,9 @@ def save_signal(signal_data: Dict[str, Any]) -> int:
     quality = signal_data.get("quality_score", int(signal_data.get("confidence_pct", 80)))
     grade = signal_data.get("grade", "A")
 
+    # Mark older active signals as EXPIRED so alerts list stays synchronized with hero setup
+    cursor.execute("UPDATE signals SET status = 'EXPIRED' WHERE status = 'ACTIVE'")
+
     cursor.execute("""
         INSERT INTO signals (
             timestamp, symbol, spot_price, day_high, day_low, bias,
@@ -352,9 +355,39 @@ def get_daily_net_pnl() -> float:
     conn.close()
     return float(row["pnl"] or 0.0)
 
-def get_recent_signals(limit: int = 2) -> List[Dict[str, Any]]:
+def get_recent_signals(limit: int = 20, current_spot: Optional[float] = None) -> List[Dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.cursor()
+    now_ts = time.time()
+
+    # 1. Reconcile signals whose expires_at timestamp has passed
+    cursor.execute("""
+        UPDATE signals
+        SET status = 'EXPIRED'
+        WHERE status = 'ACTIVE' AND expires_at IS NOT NULL AND expires_at <= ?
+    """, (now_ts,))
+
+    # 2. Reconcile signals whose invalidation level was breached by spot price
+    if current_spot is not None:
+        cursor.execute("""
+            UPDATE signals
+            SET status = 'INVALIDATED'
+            WHERE status = 'ACTIVE' AND bias = 'BUY_CE' AND invalidation_level IS NOT NULL AND ? < invalidation_level
+        """, (current_spot,))
+        cursor.execute("""
+            UPDATE signals
+            SET status = 'INVALIDATED'
+            WHERE status = 'ACTIVE' AND bias = 'BUY_PE' AND invalidation_level IS NOT NULL AND ? > invalidation_level
+        """, (current_spot,))
+
+    # 3. Fail-safe: Any signal older than 15 minutes that is still marked ACTIVE should be EXPIRED
+    cursor.execute("""
+        UPDATE signals
+        SET status = 'EXPIRED'
+        WHERE status = 'ACTIVE' AND timestamp < datetime('now', '-15 minutes')
+    """)
+
+    conn.commit()
     cursor.execute("SELECT * FROM signals ORDER BY id DESC LIMIT ?", (limit,))
     rows = cursor.fetchall()
     result = [dict(row) for row in rows]

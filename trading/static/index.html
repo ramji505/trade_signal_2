@@ -564,6 +564,11 @@
         .catch(() => {});
     }, 1500);
 
+    // Periodic Signal & Trade Alerts Refresher (every 6 seconds)
+    setInterval(() => {
+      fetchSignals();
+    }, 6000);
+
     // Web Audio Chime Generator
     function playAlertChime() {
       try {
@@ -771,6 +776,16 @@
         const quality = sig.quality_score || int(sig.confidence_pct) || 84;
         const grade = sig.grade || 'A';
 
+        const sigStatus = (sig.status || 'ACTIVE').toUpperCase();
+        let statusBadge = 'bg-emerald-950/40 text-emerald-300 border-emerald-800';
+        if (sigStatus === 'INVALIDATED' || sigStatus === 'SL_HIT') {
+          statusBadge = 'bg-rose-950/40 text-rose-300 border-rose-800';
+        } else if (sigStatus === 'EXPIRED') {
+          statusBadge = 'bg-slate-900 text-slate-400 border-slate-700';
+        } else if (sigStatus === 'TARGET_HIT') {
+          statusBadge = 'bg-emerald-900/60 text-emerald-200 border-emerald-600';
+        }
+
         html += `
           <div class="p-4 rounded-xl border ${colorClass} transition hover:border-slate-500 relative">
             <div class="flex items-center justify-between mb-2">
@@ -801,7 +816,7 @@
             </p>
 
             <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
-              <span class="text-emerald-400 font-semibold">Status: ${safeText(sig.status || 'ACTIVE')}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusBadge}">Status: ${safeText(sigStatus)}</span>
               <div class="flex items-center space-x-2">
                 <button onclick='copyStrikeToClipboard(${JSON.stringify(sig.strike)})' class="px-2.5 py-1 text-[11px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 flex items-center space-x-1">
                   <i data-lucide="copy" class="w-3 h-3"></i>
