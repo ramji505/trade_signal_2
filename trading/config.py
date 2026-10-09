@@ -93,8 +93,8 @@ class Settings:
         self.SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8000"))
 
         # Advanced Risk Budgeting & Limit-Chase Execution
-        self.ACCOUNT_EQUITY: float = float(os.getenv("ACCOUNT_EQUITY", "50000.0"))
-        self.MAX_RISK_PER_TRADE_PCT: float = float(os.getenv("MAX_RISK_PER_TRADE_PCT", "1.0")) # 1.0% risk budget per trade
+        self.ACCOUNT_EQUITY: float = float(os.getenv("ACCOUNT_EQUITY", "150000.0")) # Rs 1.5L equity for standard 1-lot NIFTY risk budget
+        self.MAX_RISK_PER_TRADE_PCT: float = float(os.getenv("MAX_RISK_PER_TRADE_PCT", "1.5")) # 1.5% risk budget allows 1-2 lots
         self.MAX_EXECUTION_LATENCY_MS: float = float(os.getenv("MAX_EXECUTION_LATENCY_MS", "300.0")) # Latency veto (>300ms)
         self.LIMIT_CHASE_TIMEOUT_SECONDS: float = float(os.getenv("LIMIT_CHASE_TIMEOUT_SECONDS", "2.0"))
         self.ENABLE_TIME_OF_DAY_FILTER: bool = os.getenv("ENABLE_TIME_OF_DAY_FILTER", "true").lower() in ("true", "1", "yes")
