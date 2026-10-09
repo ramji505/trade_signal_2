@@ -656,10 +656,10 @@
         document.getElementById('hero-invalidation-level').innerText = `₹${(lastSig.invalidation_level || (isCall ? spotPrice - 14 : spotPrice + 14)).toFixed(2)}`;
         document.getElementById('hero-target-level').innerText = `₹${(lastSig.target || (isCall ? spotPrice + 28 : spotPrice - 28)).toFixed(2)}`;
 
-        // Dynamic Countdown Timer
+        // Dynamic Countdown Timer (Clock-skew resistant)
         if (lastSig.expires_at) {
-          const nowSec = Math.floor(Date.now() / 1000);
-          const remSec = Math.floor(lastSig.expires_at - nowSec);
+          const serverNow = (data && data.timestamp) ? data.timestamp : Math.floor(Date.now() / 1000);
+          const remSec = Math.max(0, Math.floor(lastSig.expires_at - serverNow));
           if (remSec > 0) {
             const mins = String(Math.floor(remSec / 60)).padStart(2, '0');
             const secs = String(remSec % 60).padStart(2, '0');
