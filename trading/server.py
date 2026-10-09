@@ -36,10 +36,10 @@ _DASHBOARD_API_KEY = os.environ.get("DASHBOARD_API_KEY", "")
 _AUTH_ENABLED = bool(_DASHBOARD_API_KEY)
 
 class _RateLimiter:
-    """Token-bucket rate limiter: max 60 requests/minute per IP."""
-    def __init__(self, max_requests: int = 60, window_sec: int = 60):
+    """Token-bucket rate limiter: default 300 requests/minute per IP to accommodate real-time dashboard telemetry."""
+    def __init__(self, max_requests: int = 300, window_sec: int = 60):
         self._counts: dict = defaultdict(list)
-        self._max = max_requests
+        self._max = int(os.environ.get("RATE_LIMIT_RPM", max_requests))
         self._window = window_sec
 
     def is_allowed(self, client_ip: str) -> bool:
