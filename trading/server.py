@@ -92,9 +92,10 @@ class FullStackTradingServer:
         
         now_ts = time.time()
         last_sig = orchestrator.last_signal_payload
+        exp_ts = last_sig.get("expires_at") if (last_sig and isinstance(last_sig, dict)) else None
         
         # If no signal or current signal has expired, generate fresh active setup with 3-minute validity
-        if not last_sig or last_sig.get("expires_at", 0) <= now_ts:
+        if not last_sig or exp_ts is None or float(exp_ts) <= now_ts:
             is_call = spot >= tick.get("vwap", spot)
             direction = "CE" if is_call else "PE"
             atm_val = int(round(spot / 50) * 50)
