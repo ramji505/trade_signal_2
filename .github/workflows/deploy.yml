@@ -75,9 +75,15 @@ jobs:
           chmod 700 ~/.ssh
           printf "%s\n" "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          KEY_LINES=$(wc -l < ~/.ssh/deploy_key)
+          echo "Key file written: $KEY_LINES lines."
+          if [ "$KEY_LINES" -lt 10 ]; then
+            echo "❌ CRITICAL: SSH_KEY secret appears truncated or invalid! Expected ~27-30 lines, got $KEY_LINES."
+            exit 1
+          fi
 
           # 4. Execute remote deployment over SSH
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
+          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
             set -e
             echo "🚀 [CI/CD] Starting Deployment on AWS EC2..."
             APP_DIR="/home/ubuntu/trading_v2_upgrade"
