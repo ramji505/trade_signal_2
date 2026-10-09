@@ -58,6 +58,7 @@ jobs:
             echo "=== TCP PORT 22 PROBE ==="
             timeout 5 bash -c '</dev/tcp/23.23.172.189/22' && echo "Port 22 TCP OPEN" || echo "Port 22 TCP TIMED OUT"
           } > probe.log 2>&1
+          cat probe.log
 
       - name: Upload Diagnostic Probe Log
         if: always()
@@ -73,18 +74,15 @@ jobs:
           SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           set -e
-          # 1. Sanitize host (strip protocol, trailing ports, slashes, whitespace)
-          TARGET_HOST=$(echo "$RAW_HOST" | sed -e 's|^[^/]*//||' -e 's|/.*$||' -e 's|:.*$||' | tr -d '[:space:]')
-          # If host is empty or a private AWS VPC IP (172.16-31.x.x, 10.x.x.x, 192.168.x.x), route to Public Elastic IP
-          if [ -z "$TARGET_HOST" ] || [[ "$TARGET_HOST" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]] || [[ "$TARGET_HOST" =~ ^10\. ]] || [[ "$TARGET_HOST" =~ ^192\.168\. ]]; then
-            echo "⚠️ Target host '$TARGET_HOST' is an internal private VPC address. Overriding with Public Elastic IP: 23.23.172.189"
-            TARGET_HOST="23.23.172.189"
-          fi
+          # 1. Target host: strictly route to verified Public Elastic IP
+          TARGET_HOST="23.23.172.189"
+          echo "Target host: $TARGET_HOST"
 
           # 2. Resolve user (default to ubuntu)
-          TARGET_USER=$(echo "$RAW_USER" | tr -d '[:space:]')
-          if [ -z "$TARGET_USER" ]; then
-            TARGET_USER="ubuntu"
+          TARGET_USER="ubuntu"
+          if [ -n "$RAW_USER" ]; then
+            CLEAN_USER=$(echo "$RAW_USER" | tr -d '[:space:]')
+            [ -n "$CLEAN_USER" ] && TARGET_USER="$CLEAN_USER"
           fi
 
           echo "🚀 [CI/CD] Connecting to $TARGET_USER@$TARGET_HOST..."
@@ -102,7 +100,7 @@ jobs:
           fi
 
           # 4. Execute remote deployment over SSH
-          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -o IPQoS=none -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
+          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -o IPQoS=none -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key "$TARGET_USER@$TARGET_HOST" << 'EOF'
             set -e
             echo "🚀 [CI/CD] Starting Deployment on AWS EC2..."
             APP_DIR="/home/ubuntu/trading_v2_upgrade"
