@@ -95,10 +95,16 @@ class FullStackTradingServer:
         last_sig = orchestrator.last_signal_payload
         exp_ts = last_sig.get("expires_at") if (last_sig and isinstance(last_sig, dict)) else None
         
-        # If no signal or current signal has expired, generate fresh active setup with 3-minute validity
-        if not last_sig or exp_ts is None or float(exp_ts) <= now_ts:
-            is_call = spot >= tick.get("vwap", spot)
-            direction = "CE" if is_call else "PE"
+        is_call = spot >= tick.get("vwap", spot)
+        expected_direction = "CE" if is_call else "PE"
+        expected_action = f"BUY_{expected_direction}"
+        
+        current_sig_action = last_sig.get("action") if (last_sig and isinstance(last_sig, dict)) else None
+        direction_mismatch = (current_sig_action is not None and current_sig_action != expected_action)
+        
+        # If no signal, expired, OR direction mismatched with live market regime, generate fresh synchronized setup
+        if not last_sig or exp_ts is None or float(exp_ts) <= now_ts or direction_mismatch:
+            direction = expected_direction
             atm_val = int(round(spot / 50) * 50)
             atr_val = tick.get("atr", 12.0)
             sl_val = round(max(14.0, 1.2 * atr_val), 1)
